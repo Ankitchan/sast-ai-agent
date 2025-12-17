@@ -54,7 +54,7 @@ class UnifiedChat(ChatInterface):
     
     def __init__(self):
         self.router_llm = None
-        self.tool_agent = None
+        self.tool_agent = ToolUsingAgentChat()
         self.rag_agent = None
         self.research_agent = None
         self.sast_agent = None
