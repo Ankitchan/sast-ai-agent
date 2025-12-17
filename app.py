@@ -74,6 +74,7 @@ def create_demo():
         • 🌤️ **Weather** - Real-time weather information
         • 📚 **Document Analysis** - RAG-powered document search
         • 🔬 **Deep Research** - Comprehensive multi-source analysis
+        • 🛡️ **SAST (Security Analysis)** - Static Application Security Testing
         • 💬 **General Chat** - Conversational AI
         
         The system automatically routes your query to the most appropriate handler.
@@ -81,9 +82,11 @@ def create_demo():
         examples=[
             "What is 847 * 293?",
             "What's today's date?",
+            "Perform a SAST analysis on this code: `def sensitive_function(password): print(password)`",
             # "What's the weather in San Francisco?",
             # "Explain quantum computing in simple terms",
             # "Research the impact of AI on healthcare",
+            # "Find the SQL injection vulnerabilities in this github repo: `https://github.com/WebGoat/WebGoat`",
         ],
         theme=gr.themes.Soft(),
         analytics_enabled=False,

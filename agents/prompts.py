@@ -189,12 +189,17 @@ QUERY_CLASSIFIER_PROMPT = PromptTemplate.from_template(
        - Topics requiring multiple sources and detailed investigation
        - Keywords: "deep dive", "comprehensive analysis", "research", "detailed report"
     
-    4. GENERAL - Use for:
+    4. SAST - Use for:
+       - Requests to analyze code for security vulnerabilities
+       - Keywords: "security scan", "vulnerability check", "SAST", "analyze code security"
+       - When the user provides code for security analysis
+    
+    5. GENERAL - Use for:
        - General conversation and questions
        - Simple factual queries
        - Anything that doesn't fit the above categories
     
-    Return ONLY one of these exact words: SIMPLE_TOOL, AGENTIC_RAG, DEEP_RESEARCH, or GENERAL
+    Return ONLY one of these exact words: SIMPLE_TOOL, AGENTIC_RAG, DEEP_RESEARCH, SAST, or GENERAL
     
     User Query: {query}
     
