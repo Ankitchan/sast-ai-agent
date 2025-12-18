@@ -29,6 +29,8 @@ from agents.prompts import QUERY_CLASSIFIER_PROMPT
 from agents.tool_agent import ToolUsingAgentChat
 from agents.rag_agent import AgenticRAGChat
 from agents.research_agent import DeepResearchChat
+from agents.sast_agent import SastAgent
+from agents.ssrf_agent import SsrfAgent
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -38,6 +40,8 @@ class QueryType(Enum):
     SIMPLE_TOOL = "simple_tool"  # Calculator, datetime, weather
     AGENTIC_RAG = "agentic_rag"  # OPM document queries
     DEEP_RESEARCH = "deep_research"  # Comprehensive research
+    SAST = "sast"  # Static Application Security Testing (SQL Injection)
+    SSRF = "ssrf"  # SSRF Vulnerability Detection
     GENERAL = "general"  # General conversation
 
 
@@ -52,9 +56,11 @@ class UnifiedChat(ChatInterface):
     
     def __init__(self):
         self.router_llm = None
-        self.tool_agent = None
+        self.tool_agent = ToolUsingAgentChat()
         self.rag_agent = None
         self.research_agent = None
+        self.sast_agent = None
+        self.ssrf_agent = None
         self.query_classifier = None
         
     def initialize(self) -> None:
@@ -80,6 +86,14 @@ class UnifiedChat(ChatInterface):
         self.research_agent = DeepResearchChat()
         self.research_agent.initialize()
         
+        print("Initializing SAST Agent...")
+        self.sast_agent = SastAgent()
+        self.sast_agent.initialize()
+
+        print("Initializing SSRF Agent...")
+        self.ssrf_agent = SsrfAgent()
+        self.ssrf_agent.initialize()
+
         print("Nexus AI System initialized successfully!")
     
     def _create_query_classifier(self):
@@ -101,6 +115,10 @@ class UnifiedChat(ChatInterface):
                 return QueryType.AGENTIC_RAG
             elif classification == "DEEP_RESEARCH":
                 return QueryType.DEEP_RESEARCH
+            elif classification == "SAST":
+                return QueryType.SAST
+            elif classification == "SSRF":
+                return QueryType.SSRF
             else:
                 return QueryType.GENERAL
                 
@@ -151,7 +169,17 @@ class UnifiedChat(ChatInterface):
                 print("→ Routing to Deep Research Agent")
                 state["current_agent"] = "research_agent"
                 return self.research_agent.process_message(message, chat_history)
-                
+            
+            elif query_type == QueryType.SAST:
+                print("→ Routing to SAST Agent")
+                state["current_agent"] = "sast_agent"
+                return self.sast_agent.process_message(message, chat_history)
+
+            elif query_type == QueryType.SSRF:
+                print("→ Routing to SSRF Agent")
+                state["current_agent"] = "ssrf_agent"
+                return self.ssrf_agent.process_message(message, chat_history)
+
             else:
                 # Fallback to tool agent for general queries
                 print("→ Routing to Tool-Using Agent (fallback)")

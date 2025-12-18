@@ -10,5 +10,5 @@ langgraph-prebuilt==0.2.2
 opik
 fastmcp==2.8.1
 langchain-mcp-adapters==0.1.7
-gradio==5.34.2
 huggingface_hub[cli]
+gitpython

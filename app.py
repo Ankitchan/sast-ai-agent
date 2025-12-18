@@ -70,17 +70,21 @@ def create_demo():
         
         I combine multiple AI capabilities:
         • 🧮 **Calculator & Math** - Complex calculations
-        • 📅 **Date & Time** - Current date, time calculations  
+        • 📅 **Date & Time** - Current date, time calculations
         • 🌤️ **Weather** - Real-time weather information
         • 📚 **Document Analysis** - RAG-powered document search
         • 🔬 **Deep Research** - Comprehensive multi-source analysis
+        • 🛡️ **SAST** - SQL Injection vulnerability detection
+        • 🔒 **SSRF Detection** - Server-Side Request Forgery analysis
         • 💬 **General Chat** - Conversational AI
-        
+
         The system automatically routes your query to the most appropriate handler.
         """,
         examples=[
             "What is 847 * 293?",
             "What's today's date?",
+            "Find SQL injection vulnerabilities in: https://github.com/user/repo",
+            "Detect SSRF vulnerabilities in: https://github.com/user/repo",
             # "What's the weather in San Francisco?",
             # "Explain quantum computing in simple terms",
             # "Research the impact of AI on healthcare",
