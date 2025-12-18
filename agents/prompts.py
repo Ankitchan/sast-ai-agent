@@ -156,6 +156,7 @@ TOOL_SELECTION_PROMPT = PromptTemplate.from_template(
     - Calculator: For mathematical computations
     - DateTime: For date and time related queries
     - Weather: For weather information
+    - Static Analysis Tool: For analyzing code for security vulnerabilities
     
     User Query: {query}
     
@@ -170,39 +171,44 @@ TOOL_SELECTION_PROMPT = PromptTemplate.from_template(
 QUERY_CLASSIFIER_PROMPT = PromptTemplate.from_template(
     """
     You are a query classifier that determines which system should handle a user's query.
-    
+
     Analyze the user's query and classify it into one of these categories:
-    
+
     1. SIMPLE_TOOL - Use for:
        - Mathematical calculations or expressions
        - Date/time queries
        - Weather queries
        - Any query that can be answered with a simple tool call
-    
+
     2. AGENTIC_RAG - Use for:
        - Questions about specific documents
        - Queries requiring document retrieval
        - Questions about content from your knowledge base
-    
+
     3. DEEP_RESEARCH - Use for:
        - Requests for comprehensive research or analysis
        - Topics requiring multiple sources and detailed investigation
        - Keywords: "deep dive", "comprehensive analysis", "research", "detailed report"
-    
+
     4. SAST - Use for:
-       - Requests to analyze code for security vulnerabilities
-       - Keywords: "security scan", "vulnerability check", "SAST", "analyze code security"
-       - When the user provides code for security analysis
-    
-    5. GENERAL - Use for:
+       - Requests to analyze code for SQL injection vulnerabilities
+       - Keywords: "SQL injection", "SQLi", "SAST", "security scan for SQL"
+       - When the user specifically asks for SQL injection detection
+
+    5. SSRF - Use for:
+       - Requests to analyze code for SSRF (Server-Side Request Forgery) vulnerabilities
+       - Keywords: "SSRF", "server-side request forgery", "HTTP request vulnerabilities"
+       - When the user asks to detect SSRF or URL-based security issues
+
+    6. GENERAL - Use for:
        - General conversation and questions
        - Simple factual queries
        - Anything that doesn't fit the above categories
-    
-    Return ONLY one of these exact words: SIMPLE_TOOL, AGENTIC_RAG, DEEP_RESEARCH, SAST, or GENERAL
-    
+
+    Return ONLY one of these exact words: SIMPLE_TOOL, AGENTIC_RAG, DEEP_RESEARCH, SAST, SSRF, or GENERAL
+
     User Query: {query}
-    
+
     Classification:
     """
 )

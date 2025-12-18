@@ -20,8 +20,8 @@ from tools.view_directory_tools import (
     DirectoryStructureTool,
 )
 
-class SastAgent(ChatInterface):
-    """SAST Agent for static application security testing."""
+class SsrfAgent(ChatInterface):
+    """SSRF Agent for detecting Server-Side Request Forgery vulnerabilities."""
 
     def __init__(self):
         self.llm = None
@@ -30,8 +30,8 @@ class SastAgent(ChatInterface):
         self.agent_executor = None
 
     def initialize(self) -> None:
-        """Initialize components for the SAST agent."""
-        print("SAST Agent initialized.")
+        """Initialize components for the SSRF agent."""
+        print("SSRF Agent initialized.")
         self.llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
         # Initialize tools once
@@ -42,7 +42,7 @@ class SastAgent(ChatInterface):
             FileListingTool(),
             DirectoryStructureTool(),
         ]
-    
+
     def cleanup(self) -> None:
         """Clean up any cloned repositories."""
         if self.current_repo_path and os.path.exists(self.current_repo_path):
@@ -83,16 +83,16 @@ class SastAgent(ChatInterface):
             return {"error": f"JSON parsing error: {str(e)}", "raw_output": output}
 
     def process_message(self, message: str, chat_history: Optional[List[Dict[str, str]]] = None) -> str:
-        """Process a message and perform SAST analysis on a GitHub repository.
+        """Process a message and perform SSRF analysis on a GitHub repository.
 
         Args:
             message: The message containing the GitHub repository URL.
             chat_history: Optional chat history.
 
         Returns:
-            str: A response indicating the result of the SAST analysis.
+            str: A response indicating the result of the SSRF analysis.
         """
-        print(f"Received message for SAST analysis: {message}")
+        print(f"Received message for SSRF analysis: {message}")
 
         # Extract GitHub URL from the message
         github_url_match = re.search(r"https://github\.com/[a-zA-Z0-9\-_]+/[a-zA-Z0-9\-_]+", message)
@@ -101,7 +101,7 @@ class SastAgent(ChatInterface):
 
         github_url = github_url_match.group(0)
         repo_name = github_url.split("/")[-1]
-        clone_dir = os.path.join("/tmp", f"sast_{repo_name}")
+        clone_dir = os.path.join("/tmp", f"ssrf_{repo_name}")
 
         # Clean up any previous repository
         self.cleanup()
@@ -120,45 +120,76 @@ class SastAgent(ChatInterface):
         # Create the prompt template for the ReAct agent
         # Note: The ReAct framework requires these specific variables:
         # {tools}, {tool_names}, {agent_scratchpad}, {input}
-        instructions = """You are a security expert agent designed to analyze code repositories for SQL injection vulnerabilities.
+        instructions = """You are a security expert agent designed to analyze code repositories for SSRF (Server-Side Request Forgery) vulnerabilities.
 
 **Repository Location**: """ + clone_dir + """
 
 ### Your Task
-Perform a comprehensive analysis of the repository to identify SQL injection vulnerabilities.
+Perform a comprehensive analysis of the repository to identify SSRF vulnerabilities.
 
 ### Analysis Process
 
 1. **Explore the Repository Structure**
    - Use `show_directory_structure` to get an overview of the repository
    - Use `list_directories` and `list_files` to navigate through the codebase
-   - Identify files that are likely to contain database interactions (look for common patterns)
+   - Identify files that are likely to make HTTP requests or handle URLs
 
-2. **Identify SQL Usage Patterns**
+2. **Identify SSRF-Prone Patterns**
    Look for files that contain:
-   - Database query execution (`.execute()`, `.raw()`, `cursor.execute()`, etc.)
-   - SQL keywords (SELECT, INSERT, UPDATE, DELETE, WHERE, etc.)
-   - Database library imports (sqlite3, psycopg2, pymysql, django.db, SQLAlchemy, etc.)
-   - ORM usage (Django ORM, SQLAlchemy, etc.)
+   - HTTP request libraries (requests, urllib, httpx, axios, fetch, curl, etc.)
+   - URL construction or manipulation
+   - User-controlled input used in URLs
+   - File fetching operations (file_get_contents, wget, etc.)
+   - Webhook or callback URL handlers
+   - Image/file download functionality
+   - API proxy or forwarding functionality
+   - URL validation/parsing functions
 
 3. **Analyze Each Relevant File**
    - Use `view_file` to read the complete file contents
    - For large files, use `view_file_lines` to examine specific sections
-   - Look for SQL injection vulnerabilities:
-     * String concatenation or f-strings used to build SQL queries
-     * User input directly embedded in queries without sanitization
-     * Lack of parameterized queries or prepared statements
-     * Raw SQL execution with untrusted input
+   - Look for SSRF vulnerabilities:
+     * User input directly used in URL without validation
+     * Missing or insufficient URL whitelist/blacklist
+     * No checks for internal/private IP addresses (127.0.0.1, 192.168.x.x, 10.x.x.x, localhost)
+     * URL redirect following without validation
+     * DNS rebinding vulnerabilities
+     * Protocol smuggling (file://, gopher://, etc.)
+     * Missing hostname/domain validation
 
 4. **Document All Findings**
-   - Record EVERY file that uses SQL (even if not vulnerable)
+   - Record EVERY file that makes HTTP requests or handles URLs
    - For vulnerable files, note the exact line numbers and vulnerability details
    - Provide code snippets showing the vulnerable code
+   - Identify the attack vector and potential impact
 
 5. **Be Thorough**
-   - Check common locations: views, models, controllers, api endpoints, database utilities
+   - Check common locations: API routes, controllers, views, services, utilities
    - Don't stop after finding one vulnerability - scan the entire repository
    - Review at least the most common file types: .py, .java, .js, .ts, .php, .rb, .go
+
+### SSRF Vulnerability Examples
+
+**Python:**
+```python
+# VULNERABLE: User input directly in URL
+url = request.args.get('url')
+response = requests.get(url)
+
+# VULNERABLE: No IP validation
+target = user_input
+requests.get(f"http://{{{{target}}}}/api/data")
+```
+
+**JavaScript/Node.js:**
+```javascript
+// VULNERABLE: User-controlled URL
+const url = req.query.url;
+fetch(url).then(res => res.json())
+
+// VULNERABLE: No validation
+axios.get(userProvidedUrl)
+```
 
 ### Output Format
 
@@ -167,25 +198,26 @@ Your final answer MUST be in this exact JSON format:
 ```json
 {{
     "repository": \"""" + clone_dir + """\",
-    "sql_files": [
+    "http_request_files": [
         "path/to/file1.py",
-        "path/to/file2.py"
+        "path/to/file2.js"
     ],
     "vulnerable_files": [
         {{
             "file": "path/to/vulnerable_file.py",
             "line": 42,
-            "vulnerability_type": "SQL Injection",
+            "vulnerability_type": "SSRF",
             "severity": "HIGH",
-            "description": "User input concatenated directly into SQL query",
-            "code_snippet": "query = 'SELECT * FROM users WHERE id=' + user_id",
-            "recommendation": "Use parameterized queries instead"
+            "description": "User-controlled URL without validation allows SSRF",
+            "code_snippet": "url = request.args.get('url')\\nresponse = requests.get(url)",
+            "attack_vector": "Attacker can access internal services at 127.0.0.1 or cloud metadata endpoints",
+            "recommendation": "Validate URLs against whitelist, block private IP ranges, use URL parser"
         }}
     ],
     "total_files_analyzed": 10,
-    "total_sql_files": 3,
-    "total_vulnerabilities": 1,
-    "summary": "Brief summary of findings"
+    "total_http_files": 5,
+    "total_vulnerabilities": 2,
+    "summary": "Brief summary of findings including critical SSRF risks"
 }}
 ```
 
@@ -193,6 +225,7 @@ Your final answer MUST be in this exact JSON format:
 - Be systematic and thorough
 - Use the tools to explore the repository
 - Don't make assumptions - actually view the files
+- Look for both obvious and subtle SSRF vulnerabilities
 - Include ALL findings in your final JSON response
 
 TOOLS:
@@ -240,40 +273,30 @@ Thought: {agent_scratchpad}"""
                 max_execution_time=600,  # 10 minutes timeout
             )
 
-            print(f"Starting SAST analysis of repository: {clone_dir}")
+            print(f"Starting SSRF analysis of repository: {clone_dir}")
             print("This may take several minutes for large repositories...")
 
             # Invoke the agent once for the entire repository
             response = agent_executor.invoke({
-                "input": "Analyze this repository for SQL injection vulnerabilities. Start by exploring the structure, then systematically check files for SQL usage and vulnerabilities."
+                "input": "Analyze this repository for SSRF vulnerabilities. Start by exploring the structure, then systematically check files for HTTP requests and SSRF risks."
             })
 
             print("Analysis complete!")
-            print(f"DEBUG: Response keys: {response.keys()}")
 
             # Parse the response
             output = response.get("output", "")
-            print(f"DEBUG: Output length: {len(output)} characters")
-            print(f"DEBUG: First 200 chars of output: {output[:200]}")
-
             parsed_result = self._parse_json_response(output)
-            print(f"DEBUG: Parsed result keys: {parsed_result.keys()}")
 
             # Format the response for the user
             if "error" in parsed_result:
                 # JSON parsing failed, return raw output
-                print("DEBUG: JSON parsing failed, returning raw output")
                 return f"Analysis completed for {github_url}.\n\n{output}"
 
             # Successfully parsed JSON
-            print("DEBUG: JSON parsed successfully, formatting report")
-            formatted_report = self._format_analysis_report(github_url, parsed_result)
-            print(f"DEBUG: Formatted report length: {len(formatted_report)} characters")
-            print(f"DEBUG: First 300 chars of report:\n{formatted_report[:300]}")
-            return formatted_report
+            return self._format_analysis_report(github_url, parsed_result)
 
         except Exception as e:
-            error_msg = f"Error during SAST analysis: {str(e)}"
+            error_msg = f"Error during SSRF analysis: {str(e)}"
             print(error_msg)
             return error_msg
         finally:
@@ -291,40 +314,43 @@ Thought: {agent_scratchpad}"""
         Returns:
             Formatted report string
         """
-        report = "# SAST Analysis Report\n\n"
+        report = "# SSRF Vulnerability Analysis Report\n\n"
         report += f"**Repository**: {github_url}\n\n"
 
         # Summary statistics
         total_vulnerabilities = result.get("total_vulnerabilities", len(result.get("vulnerable_files", [])))
-        total_sql_files = result.get("total_sql_files", len(result.get("sql_files", [])))
+        total_http_files = result.get("total_http_files", len(result.get("http_request_files", [])))
         total_analyzed = result.get("total_files_analyzed", "unknown")
 
         report += "## Summary\n"
         report += f"- Files Analyzed: {total_analyzed}\n"
-        report += f"- Files Using SQL: {total_sql_files}\n"
-        report += f"- Vulnerabilities Found: {total_vulnerabilities}\n\n"
+        report += f"- Files Making HTTP Requests: {total_http_files}\n"
+        report += f"- SSRF Vulnerabilities Found: {total_vulnerabilities}\n\n"
 
         if result.get("summary"):
             report += f"{result['summary']}\n\n"
 
-        # List SQL files
-        sql_files = result.get("sql_files", [])
-        if sql_files:
-            report += f"## Files Using SQL ({len(sql_files)})\n"
-            for file in sql_files:
+        # List HTTP request files
+        http_files = result.get("http_request_files", [])
+        if http_files:
+            report += f"## Files Making HTTP Requests ({len(http_files)})\n"
+            for file in http_files:
                 report += f"- {file}\n"
             report += "\n"
 
         # List vulnerabilities
         vulnerable_files = result.get("vulnerable_files", [])
         if vulnerable_files:
-            report += f"## Vulnerabilities Found ({len(vulnerable_files)})\n\n"
+            report += f"## SSRF Vulnerabilities Found ({len(vulnerable_files)})\n\n"
             for i, vuln in enumerate(vulnerable_files, 1):
                 report += f"### {i}. {vuln.get('file', 'Unknown file')}\n"
                 report += f"- **Line**: {vuln.get('line', 'N/A')}\n"
                 report += f"- **Severity**: {vuln.get('severity', 'MEDIUM')}\n"
-                report += f"- **Type**: {vuln.get('vulnerability_type', 'SQL Injection')}\n"
+                report += f"- **Type**: {vuln.get('vulnerability_type', 'SSRF')}\n"
                 report += f"- **Description**: {vuln.get('description', 'No description provided')}\n"
+
+                if vuln.get('attack_vector'):
+                    report += f"- **Attack Vector**: {vuln['attack_vector']}\n"
 
                 if vuln.get('code_snippet'):
                     report += f"- **Vulnerable Code**:\n```\n{vuln['code_snippet']}\n```\n"
@@ -334,7 +360,7 @@ Thought: {agent_scratchpad}"""
 
                 report += "\n"
         else:
-            report += "## No Vulnerabilities Found\n\n"
-            report += "No SQL injection vulnerabilities were detected in the analyzed files.\n"
+            report += "## No SSRF Vulnerabilities Found\n\n"
+            report += "No SSRF vulnerabilities were detected in the analyzed files.\n"
 
         return report
